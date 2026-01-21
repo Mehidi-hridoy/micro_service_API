@@ -11,7 +11,7 @@ python manage.py runserver
 git add .
 git commit -m "djnago-ci set up "
 
-git branch -M main
+# git branch -M main
 git push -u origin main
 
 
