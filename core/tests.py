@@ -10,7 +10,6 @@ python manage.py runserver
 
 git init
 git add .
-git commit -m "Initial commit: full microservice Django project"
 git branch -M main
 git push -u origin main
 
