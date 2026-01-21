@@ -8,14 +8,15 @@ python manage.py migrate
 python manage.py runserver
 
 
-git init
 git add .
+git commit -m "djnago-ci set up "
+
 git branch -M main
 git push -u origin main
 
 
 git add .
-git commit -m "Add Procfile and gunicorn"
+git commit -m "djnago-ci set up "
 git push heroku main
 python manage.py runserver
 
