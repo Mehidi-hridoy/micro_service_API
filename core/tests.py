@@ -16,8 +16,9 @@ git push -u origin main
 
 
 git add .
-git commit -m "Configure static files for Heroku"
+git commit -m "Add Procfile and gunicorn"
 git push heroku main
+python manage.py runserver
 
 
 
