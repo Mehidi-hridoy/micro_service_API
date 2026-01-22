@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.urls import get_resolver, URLPattern, URLResolver
+from django.conf import settings
 
 class CoreHomeView(APIView):
     """
-    Home API that lists all API endpoints in a clean format,
-    showing only standard HTTP methods (GET, POST, PUT, PATCH, DELETE).
+    API Home: lists all available API endpoints with
+    clickable URLs and allowed HTTP methods.
     """
 
     STANDARD_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
@@ -14,47 +15,68 @@ class CoreHomeView(APIView):
         resolver = get_resolver()
         api_urls = []
 
+        base_url = request.build_absolute_uri('/').rstrip('/')
+
+        def extract_methods(callback):
+            methods = set()
+
+            # ViewSet (router)
+            if hasattr(callback, 'cls'):
+                view_cls = callback.cls
+                if hasattr(view_cls, 'http_method_names'):
+                    methods.update(
+                        m.upper() for m in view_cls.http_method_names
+                        if m != 'options'
+                    )
+
+            # Function-based view
+            elif hasattr(callback, 'methods'):
+                methods.update(
+                    m.upper() for m in callback.methods
+                    if m != 'OPTIONS'
+                )
+
+            return list(methods & self.STANDARD_METHODS) or ["GET"]
+
         def list_urls(urlpatterns, prefix=''):
             for entry in urlpatterns:
                 if isinstance(entry, URLResolver):
                     list_urls(entry.url_patterns, prefix + str(entry.pattern))
+
                 elif isinstance(entry, URLPattern):
-                    path = prefix + str(entry.pattern)
-                    if path.startswith('api/'):
-                        # Clean path: remove regex symbols
-                        path = path.replace('^', '').replace('$', '').replace('\\.', '.')
-                        path = path.replace('(?P<pk>[^/.]+)', '{id}')  # show {id} for clarity
-                        path = path.replace('<drf_format_suffix:format>', '')  # remove DRF format suffix
+                    raw_path = prefix + str(entry.pattern)
 
-                        # Get allowed methods
-                        callback = entry.callback
-                        methods = []
-                        if hasattr(callback, 'cls'):  # class-based view
-                            view_class = callback.cls
-                            if hasattr(view_class, 'http_method_names'):
-                                methods = [m.upper() for m in view_class.http_method_names if m != 'options']
-                        else:
-                            if hasattr(callback, 'methods'):
-                                methods = [m.upper() for m in callback.methods if m != 'OPTIONS']
+                    if not raw_path.startswith('api/'):
+                        continue
 
-                        # Keep only standard methods
-                        methods = [m for m in methods if m in self.STANDARD_METHODS]
-                        if not methods:
-                            methods = ["GET"]
+                    # Clean DRF-style paths
+                    path = raw_path
+                    path = path.replace('^', '').replace('$', '')
+                    path = path.replace('<drf_format_suffix:format>', '')
+                    path = path.replace('(?P<pk>[^/.]+)', '{id}')
+                    path = path.replace('<int:pk>', '{id}')
 
-                        api_urls.append({
-                            "path": path,
-                            "methods": methods
-                        })
+                    full_url = f"{base_url}/{path}".replace(':/', '://').replace('//', '/')
+
+                    methods = extract_methods(entry.callback)
+                    # 🚫 Skip DRF format suffix regex URLs
+                    if 'format' in path or '(?P<' in path:
+                        continue
+
+                    api_urls.append({
+                        "path": f"/{path}",
+                        "url": full_url,
+                        "methods": methods
+                    })
 
         list_urls(resolver.url_patterns)
 
-        # Remove duplicates and sort
-        unique_urls = {u['path']: u for u in api_urls}.values()
-        sorted_urls = sorted(unique_urls, key=lambda x: x['path'])
+        # Remove duplicates
+        unique = {(u["path"], tuple(u["methods"])): u for u in api_urls}.values()
 
         return Response({
-            'service': 'core',
-            'status': 'running',
-            'api_endpoints': sorted_urls
+            "service": "core",
+            "status": "running",
+            "api_count": len(unique),
+            "api_endpoints": sorted(unique, key=lambda x: x["path"])
         })

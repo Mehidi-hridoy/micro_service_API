@@ -9,14 +9,14 @@ python manage.py runserver
 
 
 git add .
-git commit -m "djnago-ci set up "
+git commit -m "APi routing link cliable  "
 
 # git branch -M main
 git push -u origin main
 
 
 git add .
-git commit -m "djnago-ci set up "
+git commit -m "APi routing link cliable  "
 git push heroku main
 python manage.py runserver
 
